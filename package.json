@@ -1,0 +1,26 @@
+{
+  "name": "Filteramo",
+  "version": "0.0.1",
+  "description": "elasticsearch for the poor man",
+  "main": "filteramo.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:xat/filteramo.git"
+  },
+  "keywords": [
+    "filters"
+  ],
+  "author": "Simon Kusterer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xat/filteramo/issues"
+  },
+  "homepage": "https://github.com/xat/filteramo",
+  "devDependencies": {
+    "expect.js": "^0.3.1",
+    "mocha": "^2.0.1"
+  }
+}
