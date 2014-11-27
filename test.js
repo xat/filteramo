@@ -24,17 +24,33 @@ describe('Filteramo', function() {
     { id: 2, term: 'foo' },
     { id: 3, term: ['foo', 'bar', 'baz'] },
     { id: 4, term: 'moo' },
-    { id: 5, term: 'bar' }
+    { id: 5, term: 'bar', term2: 'blah' }
   ];
+
+  var multiFilter = Filteramo.MultiFilter('term_filter', ['foo', 'bar', 'baz', 'moo'],
+    function(entry, input) {
+      if (isArray(entry['term'])) return inArray(entry['term'], input);
+      return entry['term'] === input;
+    }
+  );
+
+  var singleFilter1 = Filteramo.SingleFilter('term_filter', function(entry, input) {
+    if (isArray(entry['term'])) return inArray(entry['term'], input);
+    return entry['term'] === input;
+  });
+
+  var singleFilter2 = Filteramo.SingleFilter('term_filter2',
+    function(entry, input) {
+      if (isArray(entry['term2'])) return inArray(entry['term2'], input);
+      return entry['term2'] === input;
+    }
+  );
 
   it('SingleFilter', function() {
     var ramo = Filteramo();
     var ret;
 
-    ramo.filters(Filteramo.SingleFilter('term_filter', function(entry, input) {
-      if (isArray(entry['term'])) return inArray(entry['term'], input);
-      return entry['term'] === input;
-    }));
+    ramo.filters(singleFilter1);
 
     ret = ramo.run(data, { term_filter: 'foo' });
     expect(ret.results.length).to.be.equal(3);
@@ -54,12 +70,7 @@ describe('Filteramo', function() {
     var ramo = Filteramo();
     var ret;
 
-    ramo.filters(Filteramo.MultiFilter('term_filter', ['foo', 'bar', 'baz', 'moo'],
-      function(entry, input) {
-        if (isArray(entry['term'])) return inArray(entry['term'], input);
-        return entry['term'] === input;
-      })
-    );
+    ramo.filters(multiFilter);
 
     ret = ramo.run(data, { term_filter: ['foo'] });
     expect(ret.results.length).to.be.equal(3);
@@ -68,16 +79,28 @@ describe('Filteramo', function() {
     expect(ret.results.length).to.be.equal(1);
   });
 
+  it('combined Or Filters', function() {
+    var ramo = Filteramo();
+    var ret;
+    ramo.filters(Filteramo.OrCondition(multiFilter,singleFilter2));
+
+    ret = ramo.run(data, { term_filter: ['foo'], term_filter2: 'blah' });
+    expect(ret.results.length).to.be.equal(4);
+  });
+
+  it('combined And Filters', function() {
+    var ramo = Filteramo();
+    var ret;
+    ramo.filters(Filteramo.AndCondition(multiFilter,singleFilter2));
+    ret = ramo.run(data, { term_filter: ['foo'], term_filter2: 'blah' });
+    expect(ret.results.length).to.be.equal(0);
+  });
+
   it('TermsAggregator', function() {
     var ramo = Filteramo();
     var ret;
 
-    ramo.filters(Filteramo.MultiFilter('term_filter', ['foo', 'bar', 'baz', 'moo'],
-      function(entry, input) {
-        if (isArray(entry['term'])) return inArray(entry['term'], input);
-        return entry['term'] === input;
-      })
-    );
+    ramo.filters(multiFilter);
 
     ramo.aggregations(Filteramo.TermsAggregator('terms_agg', 'term'));
 
