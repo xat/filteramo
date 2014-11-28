@@ -16,6 +16,10 @@
     return isType(val, 'array');
   };
 
+  var isObject = function(val) {
+    return isType(val, 'object');
+  };
+
   var inArray = function(arr, val) {
     return arr.indexOf(val) !== -1;
   };
@@ -32,14 +36,14 @@
     var i, len;
     if (isArray(arr)) {
       for (i=0, len=arr.length; i<len; i++) {
-        if (fn(arr[i], i) === false) break;
+        if (fn(arr[i], i) === false) return false;
       }
       return;
     }
 
     for (i in arr) {
       if (!arr.hasOwnProperty(i)) continue;
-      if (fn(arr[i], i) === false) break;
+      if (fn(arr[i], i) === false) return false;
     }
   };
 
@@ -128,16 +132,24 @@
 
   // Filters
 
-  var MultiFilter = make('filter', function(name, opts, fn) {
+  var TermsFilter = make('filter', function(name, field) {
     return function(data, settings, options) {
       var input = settings[name];
       var entries = {};
       if (isArray(options.ignore) && inArray(options.skip, name)) return data;
+      if (!isArray(input)) input = [input];
 
       each(data, function(entry) {
-        each(opts, function(opt, idx) {
-          if (entries[entry.id]) return;
-          if (fn(entry, input[idx], opt)) entries[entry.id] = entry;
+        if (entries[entry.id]) return;
+        var arr = (!isArray(entry[field]) && !isObject(entry[field])) ? [entry[field]] : entry[field];
+
+        each(arr, function(val) {
+          return each(input, function(inp) {
+            if (val === inp) {
+              entries[entry.id] = entry;
+              return false;
+            }
+          });
         });
       });
 
@@ -145,7 +157,7 @@
     };
   });
 
-  var SingleFilter = make('filter', function(name, fn) {
+  var CustomFilter = make('filter', function(name, fn) {
     return function(data, settings, options) {
       var input = settings[name];
       var entries = {};
@@ -167,7 +179,7 @@
       var buckets = {};
       var entries = isArray(ignore) ? filters(data, settings, { skip: ignore }) : results;
       each(entries, function(entry) {
-        if (isArray(entry[field]) || isType(entry[field], 'object')) {
+        if (isArray(entry[field]) || isObject(entry[field])) {
           each(entry[field], function(val) {
             countMap(val, buckets);
           });
@@ -229,8 +241,8 @@
 
   Filteramo.AndCondition = AndCondition;
   Filteramo.OrCondition = OrCondition;
-  Filteramo.MultiFilter = MultiFilter;
-  Filteramo.SingleFilter = SingleFilter;
+  Filteramo.TermsFilter = TermsFilter;
+  Filteramo.CustomFilter = CustomFilter;
   Filteramo.TermsAggregator = TermsAggregator;
 
   // Node.js / browserify

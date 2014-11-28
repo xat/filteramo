@@ -27,30 +27,14 @@ describe('Filteramo', function() {
     { id: 5, term: 'bar', term2: 'blah' }
   ];
 
-  var multiFilter = Filteramo.MultiFilter('term_filter', ['foo', 'bar', 'baz', 'moo'],
-    function(entry, input) {
-      if (isArray(entry['term'])) return inArray(entry['term'], input);
-      return entry['term'] === input;
-    }
-  );
+  var termsFilter1 = Filteramo.TermsFilter('term_filter', 'term');
+  var termsFilter2 = Filteramo.TermsFilter('term_filter2', 'term2');
 
-  var singleFilter1 = Filteramo.SingleFilter('term_filter', function(entry, input) {
-    if (isArray(entry['term'])) return inArray(entry['term'], input);
-    return entry['term'] === input;
-  });
-
-  var singleFilter2 = Filteramo.SingleFilter('term_filter2',
-    function(entry, input) {
-      if (isArray(entry['term2'])) return inArray(entry['term2'], input);
-      return entry['term2'] === input;
-    }
-  );
-
-  it('SingleFilter', function() {
+  it('TermsFilter', function() {
     var ramo = Filteramo();
     var ret;
 
-    ramo.filters(singleFilter1);
+    ramo.filters(termsFilter1);
 
     ret = ramo.run(data, { term_filter: 'foo' });
     expect(ret.results.length).to.be.equal(3);
@@ -66,23 +50,10 @@ describe('Filteramo', function() {
 
   });
 
-  it('MultiFilter', function() {
-    var ramo = Filteramo();
-    var ret;
-
-    ramo.filters(multiFilter);
-
-    ret = ramo.run(data, { term_filter: ['foo'] });
-    expect(ret.results.length).to.be.equal(3);
-
-    ret = ramo.run(data, { term_filter: ['moo'] });
-    expect(ret.results.length).to.be.equal(1);
-  });
-
   it('combined Or Filters', function() {
     var ramo = Filteramo();
     var ret;
-    ramo.filters(Filteramo.OrCondition(multiFilter,singleFilter2));
+    ramo.filters(Filteramo.OrCondition(termsFilter1, termsFilter2));
 
     ret = ramo.run(data, { term_filter: ['foo'], term_filter2: 'blah' });
     expect(ret.results.length).to.be.equal(4);
@@ -91,7 +62,7 @@ describe('Filteramo', function() {
   it('combined And Filters', function() {
     var ramo = Filteramo();
     var ret;
-    ramo.filters(Filteramo.AndCondition(multiFilter,singleFilter2));
+    ramo.filters(Filteramo.AndCondition(termsFilter1, termsFilter2));
     ret = ramo.run(data, { term_filter: ['foo'], term_filter2: 'blah' });
     expect(ret.results.length).to.be.equal(0);
   });
@@ -100,7 +71,7 @@ describe('Filteramo', function() {
     var ramo = Filteramo();
     var ret;
 
-    ramo.filters(multiFilter);
+    ramo.filters(termsFilter1);
 
     ramo.aggregations(Filteramo.TermsAggregator('terms_agg', 'term'));
 
