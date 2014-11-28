@@ -32,6 +32,30 @@
     return arr;
   };
 
+  var objectKeys = function(obj) {
+    if (Object.keys) return Object.keys(obj);
+    var keys = [];
+    each(obj, function(val, key) {
+      keys.push(key);
+    });
+    return keys;
+  };
+
+  // thanks raynos!
+  // https://github.com/Raynos/xtend
+  var extend = function() {
+    var target = {};
+    for (var i = 0; i < arguments.length; i++) {
+      var source = arguments[i];
+      for (var key in source) {
+        if (source.hasOwnProperty(key)) {
+          target[key] = source[key]
+        }
+      }
+    }
+    return target;
+  };
+
   var each = function(arr, fn) {
     var i, len;
     if (isArray(arr)) {
@@ -60,6 +84,41 @@
       memo[val]++;
     }
     return memo;
+  };
+
+  var uniqueValues = function(arr, field, memo) {
+    if (!memo) memo = {};
+    each(arr, function(entry) {
+      var vals = (!isArray(entry[field]) && !isObject(entry[field])) ? [entry[field]] : entry[field];
+      each(vals, function(val) {
+        memo[val] = true;
+      });
+    });
+    return objectKeys(memo);
+  };
+
+  var addValue = function(obj, key, val) {
+    var o = {};
+    if (typeof obj[key] === 'undefined') {
+      o[key] = val;
+      return extend(obj, o);
+    }
+    if (!isArray(obj[key]) && !isObject(obj[key])) {
+      if (obj[key] === val) {
+        return extend(obj, o);
+      }
+      o[key] = [obj[key], val];
+    }
+    if (isArray(obj[key])) {
+      if (inArray(obj[key], val)) {
+        return extend(obj, o);
+      }
+      o[key] = toArray(obj[key]);
+      o[key].push(val);
+      return extend(obj, o);
+    }
+    // TODO: Handle Object-Case.
+    return extend(obj, o);
   };
 
   var existsInAll = function(sets, fn) {
@@ -132,9 +191,9 @@
 
   // Filters
 
-  var TermsFilter = make('filter', function(name, field) {
+  var TermsOrFilter = make('filter', function(name, field) {
     return function(data, settings, options) {
-      var input = settings[name];
+      var input = settings[field];
       var entries = {};
       if (isArray(options.ignore) && inArray(options.skip, name)) return data;
       if (!isArray(input)) input = [input];
@@ -151,6 +210,32 @@
             }
           });
         });
+      });
+
+      return objToArray(entries);
+    };
+  });
+
+  var TermsAndFilter = make('filter', function(name, field) {
+    return function(data, settings, options) {
+      var input = settings[field];
+      var entries = {};
+      if (isArray(options.ignore) && inArray(options.skip, name)) return data;
+      if (!isArray(input)) input = [input];
+
+      each(data, function(entry) {
+        if (entries[entry.id]) return;
+        var arr = (!isArray(entry[field]) && !isObject(entry[field])) ? [entry[field]] : entry[field];
+        var isInAll = true;
+
+        each(input, function(inp) {
+          if (!inArray(arr, inp)) {
+            isInAll = false;
+            return false;
+          }
+        });
+
+        if (isInAll) entries[entry.id] = entry;
       });
 
       return objToArray(entries);
@@ -177,15 +262,11 @@
   var TermsAggregator = make('aggregator', function(name, field, ignore) {
     return function(results, data, settings, filters) {
       var buckets = {};
-      var entries = isArray(ignore) ? filters(data, settings, { skip: ignore }) : results;
-      each(entries, function(entry) {
-        if (isArray(entry[field]) || isObject(entry[field])) {
-          each(entry[field], function(val) {
-            countMap(val, buckets);
-          });
-          return;
-        }
-        countMap(entry[field], buckets);
+      var terms = uniqueValues(data, field);
+      each(terms, function(term) {
+        var tmp = addValue(settings, field, term);
+        var entries = filters(data, tmp, { skip: ignore });
+        buckets[term] = entries.length;
       });
       return {
         name: name,
@@ -198,7 +279,7 @@
     var filters;
     var aggregations;
 
-    var obj = {
+    return {
 
       filters: function() {
         var args = toArray(arguments);
@@ -207,12 +288,12 @@
           args = AndCondition.apply(null, args);
         }
         filters = args;
-        return obj;
+        return this;
       },
 
       aggregations: function() {
         aggregations = toArray(arguments);
-        return obj;
+        return this;
       },
 
       run: function(data, settings, opts) {
@@ -235,13 +316,12 @@
         return ret;
       }
     };
-
-    return obj;
   };
 
   Filteramo.AndCondition = AndCondition;
   Filteramo.OrCondition = OrCondition;
-  Filteramo.TermsFilter = TermsFilter;
+  Filteramo.TermsOrFilter = TermsOrFilter;
+  Filteramo.TermsAndFilter = TermsAndFilter;
   Filteramo.CustomFilter = CustomFilter;
   Filteramo.TermsAggregator = TermsAggregator;
 
