@@ -1,0 +1,25 @@
+{
+  "name": "filteramo",
+  "version": "0.0.1",
+  "homepage": "https://github.com/xat/filteramo",
+  "authors": [
+    "Simon Kusterer <simon@sope.io>"
+  ],
+  "description": "filter like a boss",
+  "main": "filteramo.js",
+  "moduleType": [
+    "globals",
+    "node"
+  ],
+  "keywords": [
+    "filters"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

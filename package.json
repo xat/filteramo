@@ -1,7 +1,7 @@
 {
   "name": "Filteramo",
   "version": "0.0.1",
-  "description": "elasticsearch for the poor man",
+  "description": "filter like a boss",
   "main": "filteramo.js",
   "scripts": {
     "test": "mocha"
