@@ -193,9 +193,10 @@
 
   var TermsOrFilter = make('filter', function(name, field) {
     return function(data, settings, options) {
+      if (typeof settings[field] === 'undefined') return [];
       var input = settings[field];
       var entries = {};
-      if (isArray(options.ignore) && inArray(options.skip, name)) return data;
+      if (isArray(options.skip) && inArray(options.skip, name)) return data;
       if (!isArray(input)) input = [input];
 
       each(data, function(entry) {
@@ -218,6 +219,7 @@
 
   var TermsAndFilter = make('filter', function(name, field) {
     return function(data, settings, options) {
+      if (typeof settings[field] === 'undefined') return data;
       var input = settings[field];
       var entries = {};
       if (isArray(options.ignore) && inArray(options.skip, name)) return data;
@@ -283,7 +285,7 @@
 
       filters: function() {
         var args = toArray(arguments);
-        if (args.length === 1 && args[0].type !== 'conditional') {
+        if (args.length > 1 ||  (args.length === 1 &&args[0].type !== 'conditional')) {
           // use the And Conditional by default
           args = AndCondition.apply(null, args);
         }
