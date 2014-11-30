@@ -95,8 +95,11 @@
   };
 
   var make = function(type, fn) {
-    fn.type = type;
-    return fn;
+    return function() {
+      var ret = fn.apply(this, toArray(arguments));
+      ret.type = type;
+      return ret;
+    };
   };
 
   var countMap = function(val, memo) {
@@ -360,9 +363,10 @@
         var args = toArray(arguments);
         if (args.length > 1 ||  (args.length === 1 && args[0].type !== 'conditional')) {
           // use the And Conditional by default
-          args = AndCondition.apply(null, args);
+          filters = AndCondition.apply(null, args);
+        } else {
+          filters = args[0];
         }
-        filters = args;
         return this;
       },
 
@@ -381,7 +385,6 @@
           if (!settings) settings = {};
           if (!filters) filters = returnFirstArg;
           if (!query) query = returnFirstArg;
-
           var queried = query ? query(data, settings.query) : data;
           return {
             settings: settings,
