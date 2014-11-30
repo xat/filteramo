@@ -49,7 +49,6 @@ describe('Filteramo', function() {
 
     ret = compiled();
     expect(ret.results.length).to.be.equal(0);
-
   });
 
   it('combined Or Filters', function() {
@@ -106,6 +105,19 @@ describe('Filteramo', function() {
     expect(ret.aggregations.terms_agg.foo).to.be.equal(3);
     expect(ret.aggregations.terms_agg.bar).to.be.equal(2);
     expect(ret.aggregations.terms_agg.moo).to.be.equal(1);
+  });
+
+  it('MatchQuery', function() {
+    var ramo = Filteramo();
+    var ret;
+    ramo.query(Filteramo.MatchQuery('term'));
+    var compiled = ramo.compile(data);
+    ret = compiled({ query: 'f' });
+    expect(ret.results.length).to.be.equal(3);
+    ret = compiled({ query: '' });
+    expect(ret.results.length).to.be.equal(5);
+    ret = compiled();
+    expect(ret.results.length).to.be.equal(5);
   });
 
 });

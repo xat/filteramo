@@ -20,8 +20,31 @@
     return isType(val, 'object');
   };
 
+  var isString = function(val) {
+    return isType(val, 'string');
+  };
+
   var inArray = function(arr, val) {
     return arr.indexOf(val) !== -1;
+  };
+
+  var contains = function(needle, hay) {
+    return hay.indexOf(needle) > -1;
+  };
+
+  var arrayContains = function(needle, arr) {
+    var matches = false;
+    each(arr, function(val) {
+      if (contains(needle, val)) {
+        matches = true;
+        return false;
+      }
+    });
+    return matches;
+  };
+
+  var returnFirstArg = function(val) {
+    return val;
   };
 
   var objToArray = function(obj) {
@@ -189,6 +212,29 @@
     };
   });
 
+  // Queries
+
+  var MatchQuery = make('query', function(fields) {
+    fields = !isArray(fields) ? [fields] : fields;
+    return function(data, query) {
+      return data.filter(function(entry) {
+        var matches = false;
+        each(fields, function(field) {
+          var val = entry[field];
+          if (!query
+            || query === ''
+            || (val == query)
+            || (isString(val) && contains(query, val))
+            || (isArray(val) && arrayContains(query, val))) {
+              matches = true;
+              return false;
+          }
+        });
+        return matches;
+      });
+    };
+  });
+
   // Filters
 
   var TermsOrFilter = make('filter', function(name, field) {
@@ -259,12 +305,12 @@
   // Aggregators
 
   var TermsAggregator = make('aggregator', function(name, field) {
-    return function(data, settings, filters) {
+    return function(data, queried, settings, filters) {
       var buckets = {};
       var terms = uniqueValues(data, field);
       each(terms, function(term) {
         var tmp = addValue(settings, field, term);
-        var entries = filters(data, tmp);
+        var entries = filters(queried, tmp);
         buckets[term] = entries.length;
       });
       return {
@@ -276,14 +322,14 @@
 
   // TODO: Make this part of TermsAggregator?
   var TermAggregator = make('aggregator', function(name, field) {
-    return function(data, settings, filters) {
+    return function(data, queried, settings, filters) {
       var buckets = {};
       var terms = uniqueValues(data, field);
       each(terms, function(term) {
         var obj = {};
         obj[field] = term;
         var tmp = extend(settings, obj);
-        var entries = filters(data, tmp);
+        var entries = filters(queried, tmp);
         buckets[term] = entries.length;
       });
       return {
@@ -293,11 +339,11 @@
     };
   });
 
-  var runAggregators = function(aggregators, data, filters, settings) {
+  var runAggregators = function(aggregators, data, queried, filters, settings) {
     var results = {};
     if (!isArray(aggregators)) return results;
     each(aggregators, function(aggregator) {
-      var ret = aggregator(data, settings, filters);
+      var ret = aggregator(data, queried, settings, filters);
       results[ret.name] = ret.buckets;
     });
     return results;
@@ -306,16 +352,22 @@
   var Filteramo = function() {
     var filters;
     var aggregators;
+    var query;
 
     return {
 
       filters: function() {
         var args = toArray(arguments);
-        if (args.length > 1 ||  (args.length === 1 &&args[0].type !== 'conditional')) {
+        if (args.length > 1 ||  (args.length === 1 && args[0].type !== 'conditional')) {
           // use the And Conditional by default
           args = AndCondition.apply(null, args);
         }
         filters = args;
+        return this;
+      },
+
+      query: function(q) {
+        query = q;
         return this;
       },
 
@@ -327,9 +379,14 @@
       compile: function(data) {
         return function(settings) {
           if (!settings) settings = {};
+          if (!filters) filters = returnFirstArg;
+          if (!query) query = returnFirstArg;
+
+          var queried = query ? query(data, settings.query) : data;
           return {
-            results: filters(data, settings),
-            aggregations: runAggregators(aggregators, data, filters, settings)
+            settings: settings,
+            results: filters(queried, settings),
+            aggregations: runAggregators(aggregators, data, queried, filters, settings)
           };
         };
       }
@@ -340,6 +397,7 @@
   Filteramo.OrCondition = OrCondition;
   Filteramo.TermsOrFilter = TermsOrFilter;
   Filteramo.TermsAndFilter = TermsAndFilter;
+  Filteramo.MatchQuery = MatchQuery;
   Filteramo.CustomFilter = CustomFilter;
   Filteramo.TermAggregator = TermAggregator;
   Filteramo.TermsAggregator = TermsAggregator;
