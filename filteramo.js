@@ -312,7 +312,7 @@
       var buckets = {};
       var terms = uniqueValues(data, field);
       each(terms, function(term) {
-        var tmp = addValue(settings, field, term);
+        var tmp = addValue(settings.filters, field, term);
         var entries = filters(queried, tmp);
         buckets[term] = entries.length;
       });
@@ -331,7 +331,7 @@
       each(terms, function(term) {
         var obj = {};
         obj[field] = term;
-        var tmp = extend(settings, obj);
+        var tmp = extend(settings.filters, obj);
         var entries = filters(queried, tmp);
         buckets[term] = entries.length;
       });
@@ -388,7 +388,7 @@
           var queried = query ? query(data, settings.query) : data;
           return {
             settings: settings,
-            results: filters(queried, settings),
+            results: filters(queried, settings.filters || {}),
             aggregations: runAggregators(aggregators, data, queried, filters, settings)
           };
         };
