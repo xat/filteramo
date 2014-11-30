@@ -36,17 +36,18 @@ describe('Filteramo', function() {
     var ret;
 
     ramo.filters(termsFilter1);
+    var compiled = ramo.compile(data);
 
-    ret = ramo.run(data, { term: 'foo' });
+    ret = compiled({ term: 'foo' });
     expect(ret.results.length).to.be.equal(3);
 
-    ret = ramo.run(data, { term: 'moo' });
+    ret = compiled({ term: 'moo' });
     expect(ret.results.length).to.be.equal(1);
 
-    ret = ramo.run(data, { term: '' });
+    ret = compiled({ term: '' });
     expect(ret.results.length).to.be.equal(0);
 
-    ret = ramo.run(data);
+    ret = compiled();
     expect(ret.results.length).to.be.equal(0);
 
   });
@@ -56,7 +57,7 @@ describe('Filteramo', function() {
     var ret;
     ramo.filters(Filteramo.OrCondition(termsFilter1, termsFilter2));
 
-    ret = ramo.run(data, { term: ['foo'], term2: 'blah' });
+    ret = ramo.compile(data)({ term: ['foo'], term2: 'blah' });
     expect(ret.results.length).to.be.equal(4);
   });
 
@@ -64,7 +65,7 @@ describe('Filteramo', function() {
     var ramo = Filteramo();
     var ret;
     ramo.filters(Filteramo.AndCondition(termsFilter1, termsFilter2));
-    ret = ramo.run(data, { term: ['foo'], term2: 'blah' });
+    ret = ramo.compile(data)({ term: ['foo'], term2: 'blah' });
     expect(ret.results.length).to.be.equal(0);
   });
 
@@ -75,7 +76,7 @@ describe('Filteramo', function() {
     ramo.filters(termsAndFilter1);
     ramo.aggregations(Filteramo.TermsAggregator('terms_agg', 'term'));
 
-    ret = ramo.run(data, { term: ['foo'] });
+    ret = ramo.compile(data)({ term: ['foo'] });
 
     expect(ret.aggregations.terms_agg.foo).to.be.equal(3);
     expect(ret.aggregations.terms_agg.bar).to.be.equal(1);
@@ -88,7 +89,7 @@ describe('Filteramo', function() {
     ramo.filters(termsFilter1);
     ramo.aggregations(Filteramo.TermsAggregator('terms_agg', 'term'));
 
-    ret = ramo.run(data, { term: ['foo', 'bar'] });
+    ret = ramo.compile(data)({ term: ['foo', 'bar'] });
     expect(ret.aggregations.terms_agg.foo).to.be.equal(4);
     expect(ret.aggregations.terms_agg.bar).to.be.equal(4);
   });
@@ -100,7 +101,7 @@ describe('Filteramo', function() {
     ramo.filters(termsAndFilter1);
     ramo.aggregations(Filteramo.TermAggregator('terms_agg', 'term'));
 
-    ret = ramo.run(data, { term: ['foo'] });
+    ret = ramo.compile(data)({ term: ['foo'] });
 
     expect(ret.aggregations.terms_agg.foo).to.be.equal(3);
     expect(ret.aggregations.terms_agg.bar).to.be.equal(2);

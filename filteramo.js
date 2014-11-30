@@ -161,11 +161,11 @@
 
   var AndCondition = make('conditional', function() {
     var subs = toArray(arguments);
-    return function(data, settings, options) {
+    return function(data, settings) {
       var sets = [];
 
       each(subs, function(sub) {
-        sets.push(sub(data, settings, options));
+        sets.push(sub(data, settings));
       });
 
       return existsInAll(sets, function(entry) {
@@ -176,11 +176,11 @@
 
   var OrCondition = make('conditional', function() {
     var subs = toArray(arguments);
-    return function(data, settings, options) {
+    return function(data, settings) {
       var sets = [];
 
       each(subs, function(sub) {
-        sets.push(sub(data, settings, options));
+        sets.push(sub(data, settings));
       });
 
       return existsInSome(sets, function(entry) {
@@ -192,7 +192,7 @@
   // Filters
 
   var TermsOrFilter = make('filter', function(name, field) {
-    return function(data, settings, options) {
+    return function(data, settings) {
       if (typeof settings[field] === 'undefined') return [];
       var input = settings[field];
       var entries = {};
@@ -217,7 +217,7 @@
   });
 
   var TermsAndFilter = make('filter', function(name, field) {
-    return function(data, settings, options) {
+    return function(data, settings) {
       if (typeof settings[field] === 'undefined') return data;
       var input = settings[field];
       var entries = {};
@@ -243,7 +243,7 @@
   });
 
   var CustomFilter = make('filter', function(name, fn) {
-    return function(data, settings, options) {
+    return function(data, settings) {
       var input = settings[name];
       var entries = {};
 
@@ -314,24 +314,25 @@
         return this;
       },
 
-      run: function(data, settings, opts) {
-        if (!opts) opts = {};
-        if (!settings) settings = {};
-        var results = filters(data, settings, opts);
-        var aggResults = {};
-        var ret = {
-          results: results
+      compile: function(data) {
+        return function(settings) {
+          if (!settings) settings = {};
+          var results = filters(data, settings);
+          var aggResults = {};
+          var ret = {
+            results: results
+          };
+
+          if (isArray(aggregations)) {
+            each(aggregations, function(aggregator) {
+              var ret = aggregator(results, data, settings, filters);
+              aggResults[ret.name] = ret.buckets;
+            });
+            ret.aggregations = aggResults;
+          }
+
+          return ret;
         };
-
-        if (isArray(aggregations)) {
-          each(aggregations, function(aggregator) {
-            var ret = aggregator(results, data, settings, filters);
-            aggResults[ret.name] = ret.buckets;
-          });
-          ret.aggregations = aggResults;
-        }
-
-        return ret;
       }
     };
   };
