@@ -259,7 +259,7 @@
   // Aggregators
 
   var TermsAggregator = make('aggregator', function(name, field) {
-    return function(results, data, settings, filters) {
+    return function(data, settings, filters) {
       var buckets = {};
       var terms = uniqueValues(data, field);
       each(terms, function(term) {
@@ -276,7 +276,7 @@
 
   // TODO: Make this part of TermsAggregator?
   var TermAggregator = make('aggregator', function(name, field) {
-    return function(results, data, settings, filters) {
+    return function(data, settings, filters) {
       var buckets = {};
       var terms = uniqueValues(data, field);
       each(terms, function(term) {
@@ -293,9 +293,19 @@
     };
   });
 
+  var runAggregators = function(aggregators, data, filters, settings) {
+    var results = {};
+    if (!isArray(aggregators)) return results;
+    each(aggregators, function(aggregator) {
+      var ret = aggregator(data, settings, filters);
+      results[ret.name] = ret.buckets;
+    });
+    return results;
+  };
+
   var Filteramo = function() {
     var filters;
-    var aggregations;
+    var aggregators;
 
     return {
 
@@ -309,29 +319,18 @@
         return this;
       },
 
-      aggregations: function() {
-        aggregations = toArray(arguments);
+      aggregators: function() {
+        aggregators = toArray(arguments);
         return this;
       },
 
       compile: function(data) {
         return function(settings) {
           if (!settings) settings = {};
-          var results = filters(data, settings);
-          var aggResults = {};
-          var ret = {
-            results: results
+          return {
+            results: filters(data, settings),
+            aggregations: runAggregators(aggregators, data, filters, settings)
           };
-
-          if (isArray(aggregations)) {
-            each(aggregations, function(aggregator) {
-              var ret = aggregator(results, data, settings, filters);
-              aggResults[ret.name] = ret.buckets;
-            });
-            ret.aggregations = aggResults;
-          }
-
-          return ret;
         };
       }
     };
