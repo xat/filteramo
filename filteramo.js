@@ -274,6 +274,25 @@
     };
   });
 
+  // TODO: Make this part of TermsAggregator?
+  var TermAggregator = make('aggregator', function(name, field) {
+    return function(results, data, settings, filters) {
+      var buckets = {};
+      var terms = uniqueValues(data, field);
+      each(terms, function(term) {
+        var obj = {};
+        obj[field] = term;
+        var tmp = extend(settings, obj);
+        var entries = filters(data, tmp);
+        buckets[term] = entries.length;
+      });
+      return {
+        name: name,
+        buckets: buckets
+      };
+    };
+  });
+
   var Filteramo = function() {
     var filters;
     var aggregations;
@@ -322,6 +341,7 @@
   Filteramo.TermsOrFilter = TermsOrFilter;
   Filteramo.TermsAndFilter = TermsAndFilter;
   Filteramo.CustomFilter = CustomFilter;
+  Filteramo.TermAggregator = TermAggregator;
   Filteramo.TermsAggregator = TermsAggregator;
 
   // Node.js / browserify

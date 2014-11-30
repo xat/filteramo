@@ -93,4 +93,18 @@ describe('Filteramo', function() {
     expect(ret.aggregations.terms_agg.bar).to.be.equal(4);
   });
 
+  it('TermAggregator with TermsAndFilter', function() {
+    var ramo = Filteramo();
+    var ret;
+
+    ramo.filters(termsAndFilter1);
+    ramo.aggregations(Filteramo.TermAggregator('terms_agg', 'term'));
+
+    ret = ramo.run(data, { term: ['foo'] });
+
+    expect(ret.aggregations.terms_agg.foo).to.be.equal(3);
+    expect(ret.aggregations.terms_agg.bar).to.be.equal(2);
+    expect(ret.aggregations.terms_agg.moo).to.be.equal(1);
+  });
+
 });
