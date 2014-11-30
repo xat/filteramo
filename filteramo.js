@@ -49,7 +49,7 @@
       var source = arguments[i];
       for (var key in source) {
         if (source.hasOwnProperty(key)) {
-          target[key] = source[key]
+          target[key] = source[key];
         }
       }
     }
@@ -196,7 +196,6 @@
       if (typeof settings[field] === 'undefined') return [];
       var input = settings[field];
       var entries = {};
-      if (isArray(options.skip) && inArray(options.skip, name)) return data;
       if (!isArray(input)) input = [input];
 
       each(data, function(entry) {
@@ -222,7 +221,6 @@
       if (typeof settings[field] === 'undefined') return data;
       var input = settings[field];
       var entries = {};
-      if (isArray(options.ignore) && inArray(options.skip, name)) return data;
       if (!isArray(input)) input = [input];
 
       each(data, function(entry) {
@@ -248,7 +246,6 @@
     return function(data, settings, options) {
       var input = settings[name];
       var entries = {};
-      if (isArray(options.ignore) && inArray(options.skip, name)) return data;
 
       each(data, function(entry) {
         if (entries[entry.id]) return;
@@ -261,13 +258,13 @@
 
   // Aggregators
 
-  var TermsAggregator = make('aggregator', function(name, field, ignore) {
+  var TermsAggregator = make('aggregator', function(name, field) {
     return function(results, data, settings, filters) {
       var buckets = {};
       var terms = uniqueValues(data, field);
       each(terms, function(term) {
         var tmp = addValue(settings, field, term);
-        var entries = filters(data, tmp, { skip: ignore });
+        var entries = filters(data, tmp);
         buckets[term] = entries.length;
       });
       return {
