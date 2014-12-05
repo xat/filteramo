@@ -24,6 +24,18 @@
     return isType(val, 'string');
   };
 
+  var isFunction = function(val) {
+    return isType(val, 'function');
+  };
+
+  var isNumber = function(val) {
+    return isType(val, 'number');
+  };
+
+  var isUndefined = function(val) {
+    return typeof val === 'undefined';
+  };
+
   var inArray = function(arr, val) {
     return arr.indexOf(val) !== -1;
   };
@@ -62,6 +74,10 @@
       keys.push(key);
     });
     return keys;
+  };
+
+  var arrify = function(val) {
+    return !isArray(entry[field]) ? [val] : val;
   };
 
   // thanks raynos!
@@ -104,11 +120,22 @@
 
   var countMap = function(val, memo) {
     if (!memo) memo = {};
-    if (typeof memo[val] === 'undefined') {
+    if (isUndefined(memo[val])) {
       memo[val] = 1;
     } else {
       memo[val]++;
     }
+    return memo;
+  };
+
+  var bucketMap = function(entry, key, memo) {
+    if (!memo) memo = {};
+    var arr = arrify(entry[key]);
+    each(arr, function(val) {
+      if (!isString(val)) return;
+      if (isUndefined(memo[val])) memo[val] = {};
+      memo[val][entry.id] = entry;
+    });
     return memo;
   };
 
@@ -123,9 +150,21 @@
     return objectKeys(memo);
   };
 
+  var appliesToAll = function(arr, fn) {
+    var existsInAll = true;
+    each(arr, function(val, idx) {
+      if (!fn(val, idx)) {
+        existsInAll = false;
+        return false;
+      }
+    });
+    return existsInAll;
+  };
+
+  // TODO: Rework this mess of a function
   var addValue = function(obj, key, val) {
     var o = {};
-    if (typeof obj[key] === 'undefined') {
+    if (isUndefined(obj[key])) {
       o[key] = val;
       return extend(obj, o);
     }
@@ -183,11 +222,50 @@
     return objToArray(entries);
   };
 
-  //  Conditionals
+  var exists = function(val) {
+    if (val === null || isUndefined(val)) {
+      return false;
+    }
+    if (isArray(val) && !val.length) {
+      return false;
+    }
+    return true;
+  };
 
-  var AndCondition = make('conditional', function() {
+  var appendAgg = function(raw, obj) {
+    if (isUndefined(obj.aggs)) obj.aggs = {};
+    obj.aggs[raw.name] = raw.result;
+    return obj;
+  };
+
+  // Queries
+
+  var MatchQuery = make('query', function(fields, query) {
+    fields = !isArray(fields) ? [fields] : fields;
+    return function(data) {
+      return data.filter(function(entry) {
+        var matches = false;
+        each(fields, function(field) {
+          var val = entry[field];
+          if (!query
+            || query === ''
+            || (val == query)
+            || (isString(val) && contains(query, val))
+            || (isArray(val) && arrayContains(query, val))) {
+              matches = true;
+              return false;
+            }
+          });
+          return matches;
+        });
+      };
+    });
+
+  //  Filters
+
+  var AndFilter = make('filter', function() {
     var subs = toArray(arguments);
-    return function(data, settings) {
+    return function(data) {
       var sets = [];
 
       each(subs, function(sub) {
@@ -200,13 +278,13 @@
     };
   });
 
-  var OrCondition = make('conditional', function() {
+  var OrFilter = make('filter', function() {
     var subs = toArray(arguments);
-    return function(data, settings) {
+    return function(data) {
       var sets = [];
 
       each(subs, function(sub) {
-        sets.push(sub(data, settings));
+        sets.push(sub(data));
       });
 
       return existsInSome(sets, function(entry) {
@@ -215,75 +293,16 @@
     };
   });
 
-  // Queries
-
-  var MatchQuery = make('query', function(fields) {
-    fields = !isArray(fields) ? [fields] : fields;
-    return function(data, query) {
-      return data.filter(function(entry) {
-        var matches = false;
-        each(fields, function(field) {
-          var val = entry[field];
-          if (!query
-            || query === ''
-            || (val == query)
-            || (isString(val) && contains(query, val))
-            || (isArray(val) && arrayContains(query, val))) {
-              matches = true;
-              return false;
-          }
-        });
-        return matches;
-      });
-    };
-  });
-
-  // Filters
-
-  var TermsOrFilter = make('filter', function(name, field) {
-    return function(data, settings) {
-      if (typeof settings[field] === 'undefined') return [];
-      var input = settings[field];
+  var TermsFilter = make('filter', function(field, terms) {
+    return function(data) {
       var entries = {};
-      if (!isArray(input)) input = [input];
 
       each(data, function(entry) {
         if (entries[entry.id]) return;
-        var arr = (!isArray(entry[field]) && !isObject(entry[field])) ? [entry[field]] : entry[field];
-
-        each(arr, function(val) {
-          return each(input, function(inp) {
-            if (val === inp) {
-              entries[entry.id] = entry;
-              return false;
-            }
-          });
+        var arr = arrify(entries[entry.id]);
+        var isInAll = appliesToAll(terms, function(term) {
+          return inArray(arr, term);
         });
-      });
-
-      return objToArray(entries);
-    };
-  });
-
-  var TermsAndFilter = make('filter', function(name, field) {
-    return function(data, settings) {
-      if (typeof settings[field] === 'undefined') return data;
-      var input = settings[field];
-      var entries = {};
-      if (!isArray(input)) input = [input];
-
-      each(data, function(entry) {
-        if (entries[entry.id]) return;
-        var arr = (!isArray(entry[field]) && !isObject(entry[field])) ? [entry[field]] : entry[field];
-        var isInAll = true;
-
-        each(input, function(inp) {
-          if (!inArray(arr, inp)) {
-            isInAll = false;
-            return false;
-          }
-        });
-
         if (isInAll) entries[entry.id] = entry;
       });
 
@@ -291,53 +310,165 @@
     };
   });
 
-  var CustomFilter = make('filter', function(name, fn) {
-    return function(data, settings) {
-      var input = settings[name];
+  var TermFilter = make('filter', function(field, term) {
+    return function(data) {
       var entries = {};
 
       each(data, function(entry) {
         if (entries[entry.id]) return;
-        if (fn(entry, input)) entries[entry.id] = entry;
+        var arr = arrify(entries[entry.id]);
+        if (inArray(arr, term)) entries[entry.id] = entry;
       });
 
       return objToArray(entries);
     };
   });
 
+  var IdsFilter = make('filter', function(field, ids) {
+    ids = arrify(ids);
+    return function(data) {
+      return data.filter(function(entry) {
+        return inArray(ids, entry.id);
+      });
+    };
+  });
+
+  var RangeFilter = make('filter', function(field, gt, lt) {
+    return function(data) {
+      return data.filter(function(entry) {
+        return entry[field] > gt && entry[field] < lt;
+      });
+    };
+  });
+
+  var ExistsFilter = make('filter', function(field) {
+    return function(data) {
+      return data.filter(function(entry) {
+        return exists(entry[field]);
+      });
+    };
+  });
+
+  var MissingFilter = make('filter', function(field) {
+    return function(data) {
+      return data.filter(function(entry) {
+        return !exists(entry[field]);
+      });
+    };
+  });
+
+  var RegexpFilter = make('filter', function(field, regex) {
+    return function(data) {
+      return data.filter(function(entry) {
+        return !!str.match(regex);
+      });
+    };
+  });
+
   // Aggregators
 
-  var TermsAggregator = make('aggregator', function(name, field) {
-    return function(data, queried, settings, filters) {
+  var TermsAggregator = make('aggregator', function(name, field, sub) {
+    var hasSub = isFunction(sub);
+    return function(data) {
       var buckets = {};
-      var terms = uniqueValues(data, field);
-      each(terms, function(term) {
-        var tmp = addValue(settings.filters, field, term);
-        var entries = filters(queried, tmp);
-        buckets[term] = entries.length;
+
+      each(data, function(entry) {
+        bucketMap(entry, field, buckets);
       });
+
+      each(buckets, function(bucket, term) {
+        buckets[term] = objToArray(buckets[term]);
+      });
+
+      each(buckets, function(bucket, term) {
+        buckets[term] = {
+          count: bucket.length
+        };
+
+        if (hasSub) appendAgg(sub(bucket), buckets[term]);
+      });
+
       return {
         name: name,
-        buckets: buckets
+        result: {
+          buckets: buckets
+        }
       };
     };
   });
 
-  // TODO: Make this part of TermsAggregator?
-  var TermAggregator = make('aggregator', function(name, field) {
-    return function(data, queried, settings, filters) {
-      var buckets = {};
-      var terms = uniqueValues(data, field);
-      each(terms, function(term) {
-        var obj = {};
-        obj[field] = term;
-        var tmp = extend(settings.filters, obj);
-        var entries = filters(queried, tmp);
-        buckets[term] = entries.length;
+  var MinAggregator = make('aggregator', function(name, field) {
+    return function(data) {
+      var min;
+
+      each(data, function(entry) {
+        if (!isNumber(entry[field])) return;
+        if (isUndefined(min) || entry[field] < min) {
+          min = entry[field];
+        }
       });
+
       return {
         name: name,
-        buckets: buckets
+        result: {
+          min: min
+        }
+      };
+    };
+  });
+
+  var MaxAggregator = make('aggregator', function(name, field) {
+    return function(data) {
+      var max;
+
+      each(data, function(entry) {
+        if (!isNumber(entry[field])) return;
+        if (isUndefined(max) || entry[field] > max) {
+          max = entry[field];
+        }
+      });
+
+      return {
+        name: name,
+        result: {
+          max: max
+        }
+      };
+    };
+  });
+
+  var SumAggregator = make('aggregator', function(name, field) {
+    return function(data) {
+      var sum = 0;
+
+      each(data, function(entry) {
+        if (!isNumber(entry[field])) return;
+        entry[field] += sum;
+      });
+
+      return {
+        name: name,
+        result: {
+          sum: sum
+        }
+      };
+    };
+  });
+
+  var AvgAggregator = make('aggregator', function(name, field) {
+    return function(data) {
+      var sum = 0;
+
+      each(data, function(entry) {
+        if (!isNumber(entry[field])) return;
+        entry[field] += sum;
+      });
+
+      return {
+        name: name,
+        result: {
+          avg: sum / data.length
+        }
       };
     };
   });
@@ -406,7 +537,7 @@
   Filteramo.TermsAggregator = TermsAggregator;
 
   // Node.js / browserify
-  if (typeof module !== 'undefined' && module.exports) {
+  if (!isUndefined(module) && module.exports) {
     module.exports = Filteramo;
   }
   // <script>
