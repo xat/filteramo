@@ -383,12 +383,13 @@
       compile: function(data) {
         return function(settings) {
           if (!settings) settings = {};
+          if (!settings.filters) settings.filters = {};
           if (!filters) filters = returnFirstArg;
           if (!query) query = returnFirstArg;
           var queried = query ? query(data, settings.query) : data;
           return {
             settings: settings,
-            results: filters(queried, settings.filters || {}),
+            results: filters(queried, settings.filters),
             aggregations: runAggregators(aggregators, data, queried, filters, settings)
           };
         };
